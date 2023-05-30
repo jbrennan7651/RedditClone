@@ -1,45 +1,47 @@
 package com.clone.reddit.security;
 
-import com.clone.reddit.exceptions.SpringRedditException;
-import com.clone.reddit.model.User;
-import io.jsonwebtoken.Jwts;
-import jakarta.annotation.PostConstruct;
+import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.userdetails.User;
+
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.jwt.JwtClaimsSet;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.security.*;
-import java.security.cert.CertificateException;
+import java.time.Instant;
 
 
 @Service
+@RequiredArgsConstructor
+@AllArgsConstructor
 public class JwtProvider {
-    private KeyStore keyStore;
+    @Autowired
+    private JwtEncoder jwtEncoder;
+    @Value("${jwt.expiration.time}")
+    private Long jwtExpirationInMillis;
 
-    @PostConstruct
-    public void init(){
-        try {
-            keyStore = keyStore.getInstance("JKS");
-            InputStream resourceAsStream = getClass().getResourceAsStream("/springblod.jks");
-            keyStore.load(resourceAsStream, "secret".toCharArray());
-        } catch (KeyStoreException | CertificateException | NoSuchAlgorithmException | IOException e){
-            throw new SpringRedditException("Exception occurred while loading Keystore");
-        }
-    }
-    public String generateToken(Authentication authentication){
+    public String generateToken(Authentication authentication) {
         User principal = (User) authentication.getPrincipal();
-        return Jwts.builder()
-                .setSubject(principal.getUsername())
-                .signWith(getPrivateKey()).compact();
+        return generateTokenWithUserName(principal.getUsername());
     }
 
-    private Key getPrivateKey() {
-        try{
-            return (PrivateKey) keyStore.getKey("springblog", "secret".toCharArray());
-        } catch (KeyStoreException | NoSuchAlgorithmException | UnrecoverableKeyException e){
-            throw new SpringRedditException("Exception occurred while retrieving public key form keystore");
-        }
+    public String generateTokenWithUserName(String username) {
+        JwtClaimsSet claims = JwtClaimsSet.builder()
+                .issuer("self")
+                .issuedAt(Instant.now())
+                .expiresAt(Instant.now().plusMillis(jwtExpirationInMillis))
+                .subject(username)
+                .claim("scope", "ROLE_USER")
+                .build();
+
+        return this.jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
     }
 
+    public Long getJwtExpirationInMillis() {
+        return jwtExpirationInMillis;
+    }
 }

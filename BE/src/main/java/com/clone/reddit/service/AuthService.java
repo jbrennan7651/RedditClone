@@ -20,6 +20,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.GetMapping;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -27,6 +28,7 @@ import java.util.UUID;
 
 @Service
 @AllArgsConstructor
+@Transactional
 public class AuthService {
 
 
@@ -36,6 +38,7 @@ public class AuthService {
     private final MailService mailService;
     private final AuthenticationManager authenticationManager;
     private final JwtProvider jwtProvider;
+
 
 
     @Transactional
@@ -72,6 +75,9 @@ public class AuthService {
         fetchUserandEnable(verificationToken.get());
     }
 
+
+
+    @Transactional
     private void fetchUserandEnable(VerificationToken verificationToken) {
         @NotBlank(message = "Username is required") String username = verificationToken.getUser().getUsername();
         User user = userRepository.findByUsername(username).orElseThrow(()-> new SpringRedditException("User not found: " + username));
@@ -80,9 +86,8 @@ public class AuthService {
     }
 
     public AuthenticationResponse login(LoginRequest loginRequest) {
-        Authentication authenticate = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(
-                loginRequest.getUsername(), loginRequest.getPassword())
-        );
+        Authentication authenticate = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(loginRequest.getUsername(),
+                loginRequest.getPassword()));
         SecurityContextHolder.getContext().setAuthentication(authenticate);
         String token = jwtProvider.generateToken(authenticate);
         return new AuthenticationResponse(token, loginRequest.getUsername());

@@ -1,5 +1,8 @@
 package com.clone.reddit.security;
 
+import com.clone.reddit.dto.AuthenticationResponse;
+import com.clone.reddit.dto.RefreshTokenRequest;
+import com.clone.reddit.service.RefreshTokenService;
 import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +24,8 @@ import java.time.Instant;
 public class JwtProvider {
     @Autowired
     private JwtEncoder jwtEncoder;
+    @Autowired
+    private RefreshTokenService refreshTokenService;
     @Value("${jwt.expiration.time}")
     private Long jwtExpirationInMillis;
 
@@ -43,5 +48,16 @@ public class JwtProvider {
 
     public Long getJwtExpirationInMillis() {
         return jwtExpirationInMillis;
+    }
+
+    public AuthenticationResponse refreshToken(RefreshTokenRequest refreshTokenRequest){
+        refreshTokenService.validateRefreshToken(refreshTokenRequest.getRefreshToken());
+        String token = generateTokenWithUserName(refreshTokenRequest.getUsername());
+        return AuthenticationResponse.builder()
+                .authenticationToken(token)
+                .refreshToken(refreshTokenRequest.getRefreshToken())
+                .expiresAt(Instant.now().plusMillis(getJwtExpirationInMillis()))
+                .username(refreshTokenRequest.getUsername())
+                .build();
     }
 }
